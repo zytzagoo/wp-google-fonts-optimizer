@@ -1,0 +1,6 @@
+.vscode
+.DS_Store
+Thumbs.db
+wp-cli.local.yml
+/vendor/
+/release/
