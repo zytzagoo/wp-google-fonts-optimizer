@@ -1,4 +1,4 @@
-# A set of files you probably don't want in your WordPress.org distribution
+# A set of files/directories I don't want included in the release .zip file
 .distignore
 .editorconfig
 .git
@@ -6,18 +6,16 @@
 .travis.yml
 .DS_Store
 Thumbs.db
-bin
 composer.json
 composer.lock
-Gruntfile.js
 package.json
+packages.json
+phpcs.xml
+phpcs.xml.dist
 phpunit.xml
-multisite.xml
 phpunit.xml.dist
+multisite.xml
 multisite.xml.dist
-phpcs.ruleset.xml
-README.md
 wp-cli.local.yml
 tests
-vendor
-node_modules
+

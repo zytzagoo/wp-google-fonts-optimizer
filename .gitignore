@@ -2,5 +2,6 @@
 .DS_Store
 Thumbs.db
 wp-cli.local.yml
+phpunit.xml
 /vendor/
 /release/
