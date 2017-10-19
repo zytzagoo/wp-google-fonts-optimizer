@@ -127,7 +127,7 @@ class GoogleFontsOptimizer
      */
     public function findCandidateHandles(array $handles)
     {
-        $handler           = \wp_styles();
+        $handler           = /** @scrutinizer ignore-call */ \wp_styles();
         $candidate_handles = [];
 
         foreach ($handles as $handle) {
@@ -157,9 +157,11 @@ class GoogleFontsOptimizer
         foreach ($handles as $handle => $url) {
             // @codeCoverageIgnoreStart
             if (function_exists('\wp_deregister_style')) {
+                /** @scrutinizer ignore-call */
                 \wp_deregister_style($handle);
             }
             if (function_exists('\wp_dequeue_style')) {
+                /** @scrutinizer ignore-call */
                 \wp_dequeue_style($handle);
             }
             // @codeCoverageIgnoreEnd
@@ -183,6 +185,7 @@ class GoogleFontsOptimizer
         // @codeCoverageIgnoreStart
         // \wp_register_style($handle, $url, $deps, $version);
         if (function_exists('\wp_enqueue_style')) {
+            /** @scrutinizer ignore-call */
             \wp_enqueue_style($handle, $url, $deps, $version);
         }
         // @codeCoverageIgnoreEnd
@@ -201,7 +204,7 @@ class GoogleFontsOptimizer
     {
         $data = $this->enqueued;
 
-        if ($handle && isset($this->enqueued[$handle])) {
+        if (null !== $handle && isset($this->enqueued[$handle])) {
             $data = $this->enqueued[$handle];
         }
 
@@ -222,7 +225,7 @@ class GoogleFontsOptimizer
         // Using DOMDocument to process the HTML, regexing breaks too easily
         $dom = new \DOMDocument();
         // @codingStandardsIgnoreLine
-        @$dom->loadHTML($markup);
+        /** @scrutinizer ignore-unhandled */ @$dom->loadHTML($markup);
         // Looking for all <link> elements
         $link_nodes = $dom->getElementsByTagName('link');
         foreach ($link_nodes as $link_node) {
@@ -359,7 +362,7 @@ class GoogleFontsOptimizer
             $buffer = false;
         }
 
-        if ($buffer && defined('\SHORTINIT') && SHORTINIT) {
+        if ($buffer && defined('\SHORTINIT') && \SHORTINIT) {
             $buffer = false;
         }
 
@@ -489,7 +492,6 @@ class GoogleFontsOptimizer
         $base_url  = 'https://fonts.googleapis.com/css';
         $font_args = [];
         $family    = [];
-        $url       = null;
 
         foreach ($fonts as $font_name => $font_weight) {
             if (is_array($font_weight)) {
@@ -686,7 +688,7 @@ class GoogleFontsOptimizer
             $parts = explode(',', $values);
             $parts = array_unique($parts);
             if (false !== $sort) {
-                sort($parts, $sort);
+                sort($parts, (int) $sort);
             }
             $data[$key] = $parts;
         }
