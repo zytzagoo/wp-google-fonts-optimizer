@@ -15,26 +15,33 @@ class GoogleFontsOptimizer
 
     protected $candidates = [];
 
-    public function __construct(array $candidates = [])
-    {
-        if (!empty($candidates)) {
-            $this->setCandidates($candidates);
-        }
-    }
+    protected $enqueued = [];
 
+    /**
+     * Like the wind.
+     * Main entry point when hooked/called from WP action.
+     *
+     * @return void
+     */
     public function run()
     {
         $mode = apply_filters(self::FILTER_OPERATION_MODE, self::DEFAULT_OPERATION_MODE);
 
         switch ($mode) {
             case 'markup':
-                // Scan and optimize the entire page markup (uses more memory and requires DOM, but works on [almost] any theme)
+                /**
+                 * Scan and optimize requests found in the markup (uses more
+                 * memory but works on [almost] any theme)
+                 */
                 add_action('template_redirect', [$this, 'startBuffering'], 11);
                 break;
 
             case self::DEFAULT_OPERATION_MODE:
             default:
-                // Scan only things added via wp_enqueue_style (uses slightly less memory usually, but requires a decently coded theme)
+                /**
+                 * Scan only things added via wp_enqueue_style (uses slightly
+                 * less memory usually, but requires a decently coded theme)
+                 */
                 add_filter('print_styles_array', [$this, 'processStylesHandles']);
                 break;
         }
@@ -49,13 +56,13 @@ class GoogleFontsOptimizer
      */
     protected function hasEnoughElements(array $candidates = [])
     {
-        $has = true;
+        $enough = true;
 
         if (empty($candidates) || count($candidates) < 2) {
-            $has = false;
+            $enough = false;
         }
 
-        return $has;
+        return $enough;
     }
 
     /**
@@ -75,36 +82,33 @@ class GoogleFontsOptimizer
         $candidate_handles = $this->findCandidateHandles($handles);
 
         // Bail if we don't have anything that makes sense for us to continue
-        if (!$this->hasEnoughElements($candidate_handles)) {
+        if (! $this->hasEnoughElements($candidate_handles)) {
             return $handles;
         }
 
-        // Weee...
         $fonts_array = $this->getFontsArray($this->getCandidates());
-        if (!empty($fonts_array)) {
-            if (isset($fonts_array['complete'])) {
-                $combined_font_url = $this->buildGoogleFontsUrlFromFontsArray($fonts_array);
-                $handle_name = 'zwf-gfo-combined';
-                $this->enqueueStyle($handle_name, $combined_font_url);
+        if (isset($fonts_array['complete'])) {
+            $combined_font_url = $this->buildGoogleFontsUrlFromFontsArray($fonts_array);
+            $handle_name       = 'zwf-gfo-combined';
+            $this->enqueueStyle($handle_name, $combined_font_url);
+            $handles[] = $handle_name;
+        }
+
+        if (isset($fonts_array['partial'])) {
+            $cnt = 0;
+            foreach ($fonts_array['partial']['url'] as $url) {
+                $cnt++;
+                $handle_name = 'zwf-gfo-combined-txt-' . $cnt;
+                $this->enqueueStyle($handle_name, $url);
                 $handles[] = $handle_name;
             }
-
-            if (isset($fonts_array['partial'])) {
-                $cnt = 0;
-                foreach ($fonts_array['partial']['url'] as $url) {
-                    $cnt++;
-                    $handle_name = 'zwf-gfo-combined-txt-' . $cnt;
-                    $this->enqueueStyle($handle_name, $url);
-                    $handles[] = $handle_name;
-                }
-            }
-
-            // Remove/dequeue the ones we just combined above
-            $this->dequeueStyleHandles($candidate_handles);
-
-            // Removes processed handles from originally given $handles
-            $handles = array_diff($handles, array_keys($candidate_handles));
         }
+
+        // Remove/dequeue the ones we just combined above
+        $this->dequeueStyleHandles($candidate_handles);
+
+        // Removes processed handles from originally given $handles
+        $handles = array_diff($handles, array_keys($candidate_handles));
 
         return $handles;
     }
@@ -115,13 +119,15 @@ class GoogleFontsOptimizer
      *
      * TODO/FIXME: See if named deps will need to be taken care of...
      *
+     * @codeCoverageIgnore
+     *
      * @param array $handles
      *
      * @return array
      */
     public function findCandidateHandles(array $handles)
     {
-        $handler = \wp_styles();
+        $handler           = \wp_styles();
         $candidate_handles = [];
 
         foreach ($handles as $handle) {
@@ -140,7 +146,7 @@ class GoogleFontsOptimizer
     }
 
     /**
-     * Dequeue given style $handles
+     * Dequeue given `$handles`.
      *
      * @param array $handles
      *
@@ -149,13 +155,21 @@ class GoogleFontsOptimizer
     public function dequeueStyleHandles(array $handles)
     {
         foreach ($handles as $handle => $url) {
-            \wp_deregister_style($handle);
-            \wp_dequeue_style($handle);
+            // @codeCoverageIgnoreStart
+            if (function_exists('\wp_deregister_style')) {
+                \wp_deregister_style($handle);
+            }
+            if (function_exists('\wp_dequeue_style')) {
+                \wp_dequeue_style($handle);
+            }
+            // @codeCoverageIgnoreEnd
+            unset($this->enqueued[$handle]);
         }
     }
 
     /**
-     * Enqueues a given style using `wp_enqueue_style()`
+     * Enqueues a given style using `\wp_enqueue_style()` and keeps it in
+     * our own `$enqueued` list for reference.
      *
      * @param string $handle
      * @param string $url
@@ -166,8 +180,32 @@ class GoogleFontsOptimizer
      */
     public function enqueueStyle($handle, $url, $deps = [], $version = null)
     {
-        //\wp_register_style($handle, $url, $deps, $version);
-        \wp_enqueue_style($handle, $url, $deps, $version);
+        // @codeCoverageIgnoreStart
+        // \wp_register_style($handle, $url, $deps, $version);
+        if (function_exists('\wp_enqueue_style')) {
+            \wp_enqueue_style($handle, $url, $deps, $version);
+        }
+        // @codeCoverageIgnoreEnd
+
+        $this->enqueued[$handle] = $url;
+    }
+
+    /**
+     * Get the entire list of enqueued styles or a specific one if $handle is specified.
+     *
+     * @param string|null $handle Style "slug"
+     *
+     * @return array|string
+     */
+    public function getEnqueued($handle = null)
+    {
+        $data = $this->enqueued;
+
+        if ($handle && isset($this->enqueued[$handle])) {
+            $data = $this->enqueued[$handle];
+        }
+
+        return $data;
     }
 
     /**
@@ -179,7 +217,7 @@ class GoogleFontsOptimizer
      *
      * @return string
      */
-    public function processMarkup($markup = '')
+    public function processMarkup($markup)
     {
         // Using DOMDocument to process the HTML, regexing breaks too easily
         $dom = new \DOMDocument();
@@ -208,7 +246,7 @@ class GoogleFontsOptimizer
         $candidates = $this->getCandidates();
 
         // Bail and return original markup unmodified if we don't have things to do
-        if (!$this->hasEnoughElements($candidates)) {
+        if (! $this->hasEnoughElements($candidates)) {
             return $markup;
         }
 
@@ -257,6 +295,8 @@ class GoogleFontsOptimizer
 
     public function startBuffering()
     {
+        $started = false;
+
         if ($this->shouldBuffer()) {
             // In theory, others might've already started buffering before us,
             // which can prevent us from getting the markup
@@ -265,79 +305,78 @@ class GoogleFontsOptimizer
             }*/
 
             // Start our own buffering
-            ob_start([$this, 'endBuffering']);
+            $started = ob_start([$this, 'endBuffering']);
         }
+
+        return $started;
     }
 
     public function endBuffering($markup)
     {
         // Bail early on things we don't want to parse
-        if (!$this->isMarkupDoable($markup)) {
+        if (! $this->isMarkupDoable($markup)) {
             return $markup;
         }
 
         return $this->processMarkup($markup);
     }
 
+    /**
+     * Determines whether the current WP request should be buffered.
+     *
+     * @return bool
+     * @codeCoverageIgnore
+     */
     protected function shouldBuffer()
     {
         $buffer = true;
 
-        // Skip if admin
-        if (defined('WP_ADMIN')) {
+        if ($buffer && function_exists('\is_admin') && is_admin()) {
             $buffer = false;
         }
 
-        if ($buffer && defined('DOING_AJAX')) {
+        if ($buffer && function_exists('\is_feed') && is_feed()) {
             $buffer = false;
         }
 
-        if ($buffer && defined('DOING_CRON')) {
+        if ($buffer && defined('\DOING_AJAX')) {
             $buffer = false;
         }
 
-        if ($buffer && defined('WP_CLI')) {
+        if ($buffer && defined('\DOING_CRON')) {
             $buffer = false;
         }
 
-        if ($buffer && defined('APP_REQUEST')) {
+        if ($buffer && defined('\WP_CLI')) {
             $buffer = false;
         }
 
-        if ($buffer && defined('XMLRPC_REQUEST')) {
+        if ($buffer && defined('\APP_REQUEST')) {
             $buffer = false;
         }
 
-        // Check for WPMU's and WP's 3.0 short init
-        if ($buffer && defined('SHORTINIT') && SHORTINIT) {
+        if ($buffer && defined('\XMLRPC_REQUEST')) {
             $buffer = false;
         }
 
-        // Check w3tc UA
-        if ($buffer && defined('W3TC_POWERED_BY') && isset($_SERVER['HTTP_USER_AGENT'])) {
-            if (false !== stristr($_SERVER['HTTP_USER_AGENT'], W3TC_POWERED_BY)) {
-                $buffer = false;
-            }
-        }
-
-        // Check for Disqus actions
-        if ($buffer && isset($_GET['cf_action']) && !empty($_GET['cf_action'])) {
-            $buffer = false;
-        }
-
-        // Not buffering feeds
-        if ($buffer && is_feed()) {
+        if ($buffer && defined('\SHORTINIT') && SHORTINIT) {
             $buffer = false;
         }
 
         return $buffer;
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     protected function shouldCleanOutputBuffers()
     {
         return apply_filters(self::FILTER_OB_CLEANER, self::DEFAULT_OB_CLEANER);
     }
 
+    /**
+     * @codeCoverageIgnore
+     */
     protected function cleanOutputBuffers()
     {
         while (ob_get_level() > 0) {
@@ -353,17 +392,14 @@ class GoogleFontsOptimizer
         $has_xsl_stylesheet = (false !== stripos($content, '<xsl:stylesheet'));
         $has_html5_doctype  = (preg_match('/^<!DOCTYPE.+html>/i', $content) > 0);
 
-        /*
         if ($has_no_html_tag) {
             // Can't be valid amp markup without an html tag preceding it
             $is_amp_markup = false;
         } else {
             $is_amp_markup = $this->isAmpMarkup($content);
         }
-        */
 
-        // if ($has_no_html_tag && ! $has_html5_doctype || $is_amp_markup || $has_xsl_stylesheet) {
-        if ($has_no_html_tag && ! $has_html5_doctype || $has_xsl_stylesheet) {
+        if ($has_no_html_tag && ! $has_html5_doctype || $is_amp_markup || $has_xsl_stylesheet) {
             $doable = false;
         }
 
@@ -371,7 +407,7 @@ class GoogleFontsOptimizer
     }
 
     /**
-     * Returns true if markup is considered to be AMP.
+     * Returns true if `$markup` is considered to be AMP.
      * This is far from actual validation againts AMP spec, but it'll do for now.
      */
     protected function isAmpMarkup($content)
@@ -419,6 +455,7 @@ class GoogleFontsOptimizer
 
     /**
      * Builds a combined Google Font URL for multiple font families/subsets.
+     *
      * Usage examples:
      * ```
      * $this->buildGoogleFontsUrl(
@@ -449,35 +486,30 @@ class GoogleFontsOptimizer
      */
     public function buildGoogleFontsUrl(array $fonts, $subsets = [])
     {
-        $base_url    = '//fonts.googleapis.com/css';
-        $font_args   = [];
-        $family      = [];
-        $url         = null;
+        $base_url  = 'https://fonts.googleapis.com/css';
+        $font_args = [];
+        $family    = [];
+        $url       = null;
 
         foreach ($fonts as $font_name => $font_weight) {
-            if (!empty($font_weight)) {
-                if (is_array($font_weight)) {
-                    $font_weight = implode(',', $font_weight);
-                }
-                $family[] = trim($font_name . ':' . trim($font_weight));
-            } else {
-                $family[] = trim($font_name);
+            if (is_array($font_weight)) {
+                $font_weight = implode(',', $font_weight);
             }
+            // Trimming end colon handles edge case of being given an empty $font_weight
+            $family[] = trim(trim($font_name) . ':' . trim($font_weight), ':');
         }
 
-        if (!empty($family)) {
-            $family = implode('|', $family);
-            $font_args['family'] = $family; // spaces in font names must be encoded as '+'
-            if (!empty($subsets)) {
-                if (is_array($subsets)) {
-                    $subsets = array_unique($subsets);
-                    $subsets = implode(',', $subsets);
-                }
-                $font_args['subset'] = trim($subsets);
-            }
+        $font_args['family'] = implode('|', $family);
 
-            $url = $base_url . '?' . http_build_query($font_args);
+        if (! empty($subsets)) {
+            if (is_array($subsets)) {
+                $subsets = array_unique($subsets);
+                $subsets = implode(',', $subsets);
+            }
+            $font_args['subset'] = trim($subsets);
         }
+
+        $url = $base_url . '?' . http_build_query($font_args);
 
         return $url;
     }
@@ -494,41 +526,63 @@ class GoogleFontsOptimizer
     {
         $fonts = [];
 
-        if (!empty($candidates)) {
-            foreach ($candidates as $candidate) {
-                $fonts['links'][] = $candidate;
+        foreach ($candidates as $candidate) {
+            $fonts['links'][] = $candidate;
 
-                $query_params = [];
-                parse_str(parse_url($candidate, PHP_URL_QUERY), $query_params);
+            $params = [];
+            parse_str(parse_url($candidate, PHP_URL_QUERY), $params);
 
-                if (isset($query_params['text'])) {
-                    // Fonts with character limitations are segregated into
-                    // under 'partial' (when `text` query param is used)
-                    $font_family = explode(':', $query_params['family']);
-                    $fonts['partial']['name'][] = $font_family[0];
-                    $fonts['partial']['url'][] = $candidate;
-                } else {
-                    foreach (explode('|', $query_params['family']) as $families) {
-                        $font_family = explode(':', $families);
-                        $subset      = false;
-                        if (isset($query_params['subset'])) {
-                            // Use the found subset parameter
-                            $subset = $query_params['subset'];
-                        } elseif (isset($font_family[2])) {
-                            // Use the subset in the family string
-                            $subset = $font_family[2];
-                        }
-
-                        if (strlen($font_family[0]) > 0 && strlen($font_family[1]) > 0) {
-                            $font_string = $font_family[0] . ':' . $font_family[1];
-                            if ($subset) {
-                                $font_string .= ':' . $subset;
-                            }
-
-                            $fonts['complete'][] = $font_string;
-                        }
-                    }
+            if (isset($params['text'])) {
+                // Fonts with character limitations are segregated into
+                // under 'partial' (when `text` query param is used)
+                $font_family                = explode(':', $params['family']);
+                $fonts['partial']['name'][] = $font_family[0];
+                $fonts['partial']['url'][]  = $this->httpsify($candidate);
+            } else {
+                $fontstrings = $this->buildFontStringsFromQueryParams($params);
+                foreach ($fontstrings as $font) {
+                    $fonts['complete'][] = $font;
                 }
+            }
+        }
+
+        return $fonts;
+    }
+
+    /**
+     * Looks for and parses the `family` query string value into a string
+     * that Google Fonts expects (family, weights and subsets separated by
+     * a semicolon).
+     *
+     * @param array $params
+     *
+     * @return array
+     */
+    protected function buildFontStringsFromQueryParams(array $params)
+    {
+        $fonts = [];
+
+        foreach (explode('|', $params['family']) as $families) {
+            $font_family = explode(':', $families);
+            $subset      = false;
+            if (isset($params['subset'])) {
+                // Use the found subset parameter
+                $subset = $params['subset'];
+            } elseif (isset($font_family[2])) {
+                // Use the subset in the family string
+                $subset = $font_family[2];
+            }
+
+            // We need to have a name and a size
+            if (strlen($font_family[0]) > 0 && strlen($font_family[1]) > 0) {
+                $parts = [
+                    $font_family[0],
+                    $font_family[1]
+                ];
+                if ($subset) {
+                    $parts[] = $subset;
+                }
+                $fonts[] = implode(':', $parts);
             }
         }
 
@@ -544,41 +598,140 @@ class GoogleFontsOptimizer
      */
     protected function buildGoogleFontsUrlFromFontsArray(array $fonts_array)
     {
-        $fonts   = [];
-        $subsets = [];
+        list($fonts, $subsets) = $this->consolidateFontsArray($fonts_array);
+
+        return $this->buildGoogleFontsUrl($fonts, $subsets);
+    }
+
+    /**
+     * Given a "raw" getFontsArray(), deduplicate and sort the data
+     * and return a new array with three keys:
+     * - the first key contains sorted list of fonts/sizes
+     * - the second key contains the global list of requested subsets
+     * - the third key contains the map of requested font names and their subsets
+     *
+     * @param array $fonts_array
+     *
+     * @return array
+     */
+    protected function consolidateFontsArray(array $fonts_array)
+    {
+        $fonts         = [];
+        $subsets       = [];
+        $fonts_to_subs = [];
 
         foreach ($fonts_array['complete'] as $font_string) {
             $parts = explode(':', $font_string);
-            $fonts[ $parts[0] ] = $parts[1];
+            $name  = $parts[0];
+            $size  = $parts[1];
+
+            if (isset($fonts[$name])) {
+                // If a name already exists, append the new size
+                $fonts[$name] .= ',' . $size;
+            } else {
+                // Create a new key for the name and size
+                $fonts[$name] = $size;
+            }
+
+            // Check if subset is specified as the third element
             if (isset($parts[2])) {
-                $elements = explode(',', $parts[2]);
-                if (!empty($elements)) {
-                    foreach ($elements as $subset) {
-                        $subsets[] = $subset;
-                    }
+                $subset = $parts[2];
+                // Collect all the subsets defined into a single array
+                $elements = explode(',', $subset);
+                foreach ($elements as $sub) {
+                    $subsets[] = $sub;
+                }
+                // Keeping a separate map of names => requested subsets for
+                // webfontloader purposes
+                if (isset($fonts_to_subs[$name])) {
+                    $fonts_to_subs[$name] .= ',' . $subset;
                 } else {
-                    $subsets[] = $parts[2];
+                    $fonts_to_subs[$name] = $subset;
                 }
             }
         }
 
-        // Remove duplicates
-        if (!empty($subsets)) {
-            $subsets = array_unique($subsets);
-        }
+        // Remove duplicate subsets
+        $subsets = array_unique($subsets);
 
-        $font_url = $this->buildGoogleFontsUrl($fonts, $subsets);
+        // Sanitize and de-dup name/sizes pairs
+        $fonts = $this->dedupValues($fonts, SORT_REGULAR); // sorts values (sizes)
 
-        return $font_url;
+        // Sorts by font names alphabetically
+        ksort($fonts);
+
+        // Sanitize and de-dup $fonts_to_subs mapping
+        $fonts_to_subs = $this->dedupValues($fonts_to_subs, false); // no sort
+
+        return [$fonts, $subsets, $fonts_to_subs];
     }
 
-    public function encodeUnencodedAmpersands($url, $amp = '&#38;')
+    /**
+     * Given a key => value map in which the value is a single string or
+     * a list of comma-separeted strings, it returns a new array with the
+     * given keys, but the values are transformed into an array and any
+     * potential duplicate values are removed.
+     * If the $sort parameter is given, the list of values is sorted using
+     * `sort()` and the $sort param is treated as a sort flag.
+     *
+     * @param array $data
+     * @param bool|int $sort If false, no sorting, otherwise an int representing
+     *                       sort flags. See http://php.net/sort
+     *
+     * @return array
+     */
+    protected function dedupValues(array $data, $sort = false)
     {
-        if (!$amp) {
+        foreach ($data as $key => $values) {
+            $parts = explode(',', $values);
+            $parts = array_unique($parts);
+            if (false !== $sort) {
+                sort($parts, $sort);
+            }
+            $data[$key] = $parts;
+        }
+
+        return $data;
+    }
+
+    /**
+     * Replaces any occurences of un-encoded ampersands in the given string
+     * with the value given in the `$amp` parameter (`&amp;` by default).
+     *
+     * @param string $url
+     * @param string $amp
+     *
+     * @return string
+     */
+    public function encodeUnencodedAmpersands($url, $amp = '&amp;')
+    {
+        $amp = trim($amp);
+        if (empty($amp)) {
             $amp = '&amp;';
         }
 
         return preg_replace('/&(?!#?\w+;)/', $amp, $url);
+    }
+
+    /**
+     * Turns protocol-relative or non-https URLs into their https versions.
+     *
+     * @param string $link
+     *
+     * @return string
+     */
+    public function httpsify($link)
+    {
+        $is_protocol_relative = ('/' === $link{0} && '/' === $link{1});
+
+        if ($is_protocol_relative) {
+            $link = 'https:' . $link;
+        } else {
+            $link = preg_replace('/^(https?):\/\//mi', '', $link);
+            $link = 'https://' . $link;
+        }
+
+        return $link;
     }
 
     /**
@@ -594,33 +747,44 @@ class GoogleFontsOptimizer
         if ('link' === $markup_type) {
             // Build standard link markup
             $font_url = $this->buildGoogleFontsUrlFromFontsArray($fonts_array);
-            $markup   = '<link rel="stylesheet" type="text/css" href="' . $this->encodeUnencodedAmpersands($font_url) . '">';
+            $href     = $this->encodeUnencodedAmpersands($font_url);
+            $markup   = '<link rel="stylesheet" type="text/css" href="' . $href . '">';
 
             if (isset($fonts_array['partial'])) {
                 if (is_array($fonts_array['partial']['url'])) {
                     foreach ($fonts_array['partial']['url'] as $other) {
-                        $markup .= '<link rel="stylesheet" type="text/css" href="' . $this->encodeUnencodedAmpersands($other) . '">';
+                        $markup .= '<link rel="stylesheet" type="text/css"';
+                        $markup .= ' href="' . $this->encodeUnencodedAmpersands($other) . '">';
                     }
                 }
             }
         } else {
             // Bulding WebFont script loader
-            $families = "'" . implode("', '", $fonts_array['complete']) . "'";
+            $families_array = [];
 
-            // Check "other"
+            list($fonts, $subsets, $mapping) = $this->consolidateFontsArray($fonts_array);
+            foreach ($fonts as $name => $sizes) {
+                $family = $name . ':' . implode(',', $sizes);
+                if (isset($mapping[$name])) {
+                    $family .= ':' . implode(',', $mapping[$name]);
+                }
+                $families_array[] = $family;
+            }
+            $families = "'" . implode("', '", $families_array) . "'";
+
+            // Load 'text' requests with the "custom" module
+            $custom = '';
             if (isset($fonts_array['partial'])) {
-                $other = ",
-                    custom: { families: [ '" . implode("', '", $fonts_array['partial']['name']) . "' ],
-                    urls: [ '" . implode("', '", $fonts_array['partial']['url']) . "' ] }
-                ";
-            } else {
-                $other = '';
+                $custom  = ",\n    custom: {\n";
+                $custom .= "        families: [ '" . implode("', '", $fonts_array['partial']['name']) . "' ],\n";
+                $custom .= "        urls: [ '" . implode("', '", $fonts_array['partial']['url']) . "' ]\n";
+                $custom .= '    }';
             }
 
             $markup = <<<HTML
 <script type="text/javascript">
 WebFontConfig = {
-    google: { families: [ {$families} ] }{$other}
+    google: { families: [ {$families} ] }{$custom}
 };
 (function() {
     var wf = document.createElement('script');
