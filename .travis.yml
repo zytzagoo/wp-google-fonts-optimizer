@@ -47,4 +47,4 @@ jobs:
     - stage: CodeStyle
       php: 7.1
       script:
-        - ./vendor/bin/phpcs
+        - ./vendor/bin/phpcs -n
