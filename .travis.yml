@@ -1,5 +1,5 @@
 language: php
-
+dist: trusty
 sudo: false
 
 cache:
@@ -20,12 +20,26 @@ matrix:
     - php: nightly
 
 before_install:
-  - phpenv config-rm xdebug.ini
+  - mv ~/.phpenv/versions/$(phpenv version-name)/etc/conf.d/xdebug.ini{,.disabled} || echo "xdebug not available"
   - composer self-update
 
-install:
-  - composer install --no-interaction
+install: travis_retry composer install --no-interaction
 
 script:
   - find src tests \( -name '*.php' \) -exec php -l {} \;
   - vendor/bin/phpunit
+
+include:
+  - stage: Coverage
+      before_script:
+        - mv ~/.phpenv/versions/$(phpenv version-name)/etc/conf.d/xdebug.ini{.disabled,}
+        - if [[ ! $(php -m | grep -si xdebug) ]]; then echo "xdebug required for coverage"; exit 1; fi
+      script:
+        - ./vendor/bin/phpunit --coverage-clover ./clover.xml
+      after_script:
+        - wget https://scrutinizer-ci.com/ocular.phar
+        - php ocular.phar code-coverage:upload --format=php-clover ./clover.xml
+
+  - stage: CodeStyle
+      script:
+        - ./vendor/bin/phpcs

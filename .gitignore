@@ -1,7 +1,9 @@
-.vscode
+/.vscode/
 .DS_Store
+/.phpcs.cache
 Thumbs.db
 wp-cli.local.yml
 phpunit.xml
+/coverage/
 /vendor/
 /release/

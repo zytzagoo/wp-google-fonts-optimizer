@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
-<ruleset name="WP GFO Coding Standards">
-    <description>WP Google Fonts Optimizer coding standards.</description>
-
+<ruleset>
+    <arg name="cache" value=".phpcs.cache"/>
     <file>./src</file>
     <file>./tests</file>
+    <exclude-pattern>./coverage</exclude-pattern>
 
     <!-- Show sniff codes in all reports -->
     <arg value="sp"/>
@@ -12,6 +12,10 @@
     <config name="testVersion" value="5.4-"/>
     <rule ref="PHPCompatibility"/>
 
+    <!-- PSR2 + some additions -->
+    <rule ref="PSR2"/>
+
+    <rule ref="Generic.Arrays.DisallowLongArraySyntax"/>
     <rule ref="Generic.Classes.DuplicateClassName"/>
     <rule ref="Generic.CodeAnalysis.EmptyStatement"/>
     <rule ref="Generic.CodeAnalysis.ForLoopShouldBeWhileLoop"/>
@@ -25,6 +29,12 @@
     <rule ref="Generic.Files.LineEndings"/>
     <rule ref="Generic.Formatting.DisallowMultipleStatements"/>
     <rule ref="Generic.Formatting.SpaceAfterCast"/>
+    <rule ref="Generic.Formatting.SpaceAfterNot"/>
+    <rule ref="Generic.Formatting.MultipleStatementAlignment">
+        <properties>
+            <property name="ignoreMultiLine" value="true"/>
+        </properties>
+    </rule>
     <rule ref="Generic.Functions.CallTimePassByReference"/>
     <rule ref="Generic.NamingConventions.ConstructorName"/>
     <rule ref="Generic.NamingConventions.UpperCaseConstantName"/>
@@ -33,6 +43,7 @@
     <rule ref="Generic.PHP.ForbiddenFunctions"/>
     <rule ref="Generic.PHP.LowerCaseConstant"/>
     <rule ref="Generic.PHP.NoSilencedErrors"/>
+    <rule ref="Generic.PHP.Syntax"/>
     <rule ref="Generic.Strings.UnnecessaryStringConcat"/>
     <rule ref="Generic.WhiteSpace.DisallowTabIndent"/>
     <rule ref="Generic.WhiteSpace.ScopeIndent">
@@ -43,22 +54,24 @@
     <rule ref="PEAR.WhiteSpace.ScopeClosingBrace"/>
     <rule ref="PEAR.WhiteSpace.ObjectOperatorIndent"/>
     <rule ref="PEAR.Classes.ClassDeclaration"/>
-    <rule ref="PSR1.Classes.ClassDeclaration"/>
-    <rule ref="PSR1.Files.SideEffects"/>
-    <rule ref="PSR2.Classes.ClassDeclaration"/>
-    <rule ref="PSR2.Classes.PropertyDeclaration"/>
-    <rule ref="PSR2.ControlStructures.ElseIfDeclaration"/>
-    <rule ref="PSR2.ControlStructures.SwitchDeclaration"/>
-    <rule ref="PSR2.Files.EndFileNewline"/>
-    <rule ref="PSR2.Methods.MethodDeclaration"/>
-    <rule ref="PSR2.Namespaces.NamespaceDeclaration"/>
-    <rule ref="PSR2.Namespaces.UseDeclaration"/>
     <rule ref="Squiz.Commenting.DocCommentAlignment"/>
+    <rule ref="Squiz.Classes.SelfMemberReference"/>
+    <rule ref="Squiz.Classes.ClassFileName"/>
+    <rule ref="Squiz.Classes.ClassDeclaration"/>
+    <rule ref="Squiz.Commenting.EmptyCatchComment"/>
+    <rule ref="Squiz.Operators.IncrementDecrementUsage"/>
+    <rule ref="Squiz.Functions.MultiLineFunctionDeclaration"/>
+    <rule ref="Squiz.Functions.LowercaseFunctionKeywords"/>
+    <rule ref="Squiz.Functions.FunctionDeclaration"/>
+    <rule ref="Squiz.Functions.FunctionDeclarationArgumentSpacing"/>
+    <rule ref="Squiz.Formatting.OperatorBracket"/>
     <rule ref="Squiz.PHP.DisallowObEndFlush"/>
     <rule ref="Squiz.PHP.DisallowSizeFunctionsInLoops"/>
+    <rule ref="Squiz.PHP.DisallowMultipleAssignments"/>
     <rule ref="Squiz.PHP.DiscouragedFunctions">
         <severity>0</severity>
     </rule>
+    <rule ref="Squiz.PHP.EmbeddedPhp"/>
     <rule ref="Squiz.PHP.Eval"/>
     <rule ref="Squiz.PHP.ForbiddenFunctions"/>
     <rule ref="Squiz.PHP.InnerFunctions"/>
@@ -67,6 +80,7 @@
     <rule ref="Squiz.Scope.MemberVarScope"/>
     <rule ref="Squiz.Scope.MethodScope"/>
     <rule ref="Squiz.Scope.StaticThisUsage"/>
+    <rule ref="Squiz.Strings.DoubleQuoteUsage"/>
     <rule ref="Squiz.WhiteSpace.CastSpacing"/>
     <rule ref="Squiz.WhiteSpace.ControlStructureSpacing"/>
     <!--
