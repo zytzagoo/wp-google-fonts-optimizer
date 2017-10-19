@@ -1,5 +1,5 @@
-language: php
 dist: trusty
+language: php
 sudo: false
 
 cache:
@@ -29,8 +29,12 @@ script:
   - find src tests \( -name '*.php' \) -exec php -l {} \;
   - vendor/bin/phpunit
 
-include:
-  - stage: Coverage
+jobs:
+  allow_failures:
+    - php: nightly
+  include:
+    - stage: Coverage
+      php: 7.1
       before_script:
         - mv ~/.phpenv/versions/$(phpenv version-name)/etc/conf.d/xdebug.ini{.disabled,}
         - if [[ ! $(php -m | grep -si xdebug) ]]; then echo "xdebug required for coverage"; exit 1; fi
@@ -40,6 +44,7 @@ include:
         - wget https://scrutinizer-ci.com/ocular.phar
         - php ocular.phar code-coverage:upload --format=php-clover ./clover.xml
 
-  - stage: CodeStyle
+    - stage: CodeStyle
+      php: 7.1
       script:
         - ./vendor/bin/phpcs
