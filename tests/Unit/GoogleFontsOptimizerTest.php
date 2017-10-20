@@ -4,6 +4,7 @@ namespace ZWF\GoogleFontsOptimizer\Tests\Unit;
 
 use Brain\Monkey;
 use ZWF\GoogleFontsOptimizer as Testee;
+use ZWF\GoogleFontsOptimizerUtils as Utils;
 use ZWF\GoogleFontsOptimizer\Tests\TestCase;
 
 /**
@@ -18,9 +19,7 @@ class GoogleFontsOptimizerTest extends TestCase
      */
     public function testIsGoogleWebFontUrl($url, $expected)
     {
-        $instance = new Testee();
-        $actual   = $instance->isGoogleWebFontUrl($url);
-
+        $actual = Utils::isGoogleWebFontUrl($url);
         $this->assertSame($expected, $actual);
     }
 
@@ -43,9 +42,7 @@ class GoogleFontsOptimizerTest extends TestCase
      */
     public function testBuildGoogleFontsUrl(array $fonts, $subsets, $expected)
     {
-        $instance = new Testee();
-        $actual   = $instance->buildGoogleFontsUrl($fonts, $subsets);
-
+        $actual = Utils::buildGoogleFontsUrl($fonts, $subsets);
         $this->assertSame($expected, $actual);
     }
 
@@ -84,9 +81,7 @@ class GoogleFontsOptimizerTest extends TestCase
      */
     public function testEncodingUnencodedAmpersands($in, $amp, $expected)
     {
-        $instance = new Testee();
-        $actual   = $instance->encodeUnencodedAmpersands($in, $amp);
-
+        $actual = Utils::encodeUnencodedAmpersands($in, $amp);
         $this->assertSame($expected, $actual);
     }
 
@@ -126,9 +121,7 @@ class GoogleFontsOptimizerTest extends TestCase
      */
     public function testHttpsify($link, $expected)
     {
-        $instance = new Testee();
-        $actual   = $instance->httpsify($link);
-
+        $actual = Utils::httpsify($link);
         $this->assertSame($expected, $actual);
     }
 
