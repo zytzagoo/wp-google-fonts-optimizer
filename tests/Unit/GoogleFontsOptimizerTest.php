@@ -303,4 +303,49 @@ HTML;
         $results = $stub->processStylesHandles(array_keys($test_handles));
         $this->assertSame(array_keys($expected_handles), array_values($results));
     }
+
+    /**
+     * Test processMarkup using AMP
+     */
+    public function testProcessMarkupWithAmp()
+    {
+        $input = <<<MARKUP
+<!doctype html>
+<html amp lang="en">
+    <head>
+    <meta charset="utf-8">
+    <script async src="https://cdn.ampproject.org/v0.js"></script>
+    <title>Hello, AMPs</title>
+    <link href="https://fonts.googleapis.com/css?family=Tangerine" rel="stylesheet">
+    <link href="http://fonts.googleapis.com/css?family=Bitstream+Vera+Serif" rel="stylesheet">
+    <link rel="canonical" href="http://example.ampproject.org/article-metadata.html">
+    <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+    </head>
+    <body>
+    <h1>Welcome to the mobile web</h1>
+    </body>
+</html>
+MARKUP;
+
+        $expected = <<<MARKUP
+<!doctype html>
+<html amp lang="en">
+    <head><link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Bitstream+Vera+Serif%7CTangerine">
+    <meta charset="utf-8">
+    <script async src="https://cdn.ampproject.org/v0.js"></script>
+    <title>Hello, AMPs</title>
+    <link rel="canonical" href="http://example.ampproject.org/article-metadata.html">
+    <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1">
+    </head>
+    <body>
+    <h1>Welcome to the mobile web</h1>
+    </body>
+</html>
+MARKUP;
+
+        $instance = new Testee();
+        $actual   = $instance->processMarkup($input);
+
+        $this->assertSame($expected, $actual);
+    }
 }

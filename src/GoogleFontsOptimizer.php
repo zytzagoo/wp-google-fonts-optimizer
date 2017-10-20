@@ -86,6 +86,10 @@ class GoogleFontsOptimizer
             return $handles;
         }
 
+        // Set the list of found urls we matched
+        $this->setCandidates(array_values($candidate_handles));
+
+        // Get fonts array data from candidates
         $fonts_array = $this->getFontsArray($this->getCandidates());
         if (isset($fonts_array['complete'])) {
             $combined_font_url = $this->buildGoogleFontsUrlFromFontsArray($fonts_array);
@@ -114,8 +118,8 @@ class GoogleFontsOptimizer
     }
 
     /**
-     * Given a list of WP style handles return only those handles
-     * that we're interested in.
+     * Given a list of WP style handles return a new "named map" of handles
+     * we care about along with their urls.
      *
      * TODO/FIXME: See if named deps will need to be taken care of...
      *
@@ -131,12 +135,10 @@ class GoogleFontsOptimizer
         $candidate_handles = [];
 
         foreach ($handles as $handle) {
-            // $url = $handler->registered[ $handle ]->src;
             $dep = $handler->query($handle, 'registered');
             if ($dep) {
                 $url = $dep->src;
                 if ($this->isGoogleWebFontUrl($url)) {
-                    $this->addCandidate($url);
                     $candidate_handles[$handle] = $url;
                 }
             }
@@ -183,7 +185,6 @@ class GoogleFontsOptimizer
     public function enqueueStyle($handle, $url, $deps = [], $version = null)
     {
         // @codeCoverageIgnoreStart
-        // \wp_register_style($handle, $url, $deps, $version);
         if (function_exists('\wp_enqueue_style')) {
             /** @scrutinizer ignore-call */
             \wp_enqueue_style($handle, $url, $deps, $version);
@@ -222,27 +223,9 @@ class GoogleFontsOptimizer
      */
     public function processMarkup($markup)
     {
-        // Using DOMDocument to process the HTML, regexing breaks too easily
-        $dom = new \DOMDocument();
-        // @codingStandardsIgnoreLine
-        /** @scrutinizer ignore-unhandled */ @$dom->loadHTML($markup);
-        // Looking for all <link> elements
-        $link_nodes = $dom->getElementsByTagName('link');
-        foreach ($link_nodes as $link_node) {
-            // Find all stylesheets
-            $rel  = null;
-            $type = null;
-            $href = null;
-            $find = ['rel', 'type', 'href'];
-            foreach ($find as $attr) {
-                if ($link_node->hasAttribute($attr)) {
-                    $$attr = $link_node->getAttribute($attr);
-                }
-            }
-
-            if ('stylesheet' === $rel && 'text/css' === $type && $this->isGoogleWebFontUrl($href)) {
-                $this->addCandidate($href);
-            }
+        $hrefs = $this->parseMarkupForHrefs($markup);
+        if (!empty($hrefs)) {
+            $this->setCandidates($hrefs);
         }
 
         // See if we found anything
@@ -259,6 +242,62 @@ class GoogleFontsOptimizer
         $markup      = $this->modifyMarkup($markup, $font_markup, $fonts_array['links']);
 
         return $markup;
+    }
+
+    /**
+     * Given a string of $markup, returns an array of hrefs we're interested in.
+     *
+     * @param string $markup
+     *
+     * @return array
+     */
+    protected function parseMarkupForHrefs($markup)
+    {
+        $hrefs = [];
+
+        $dom = new \DOMDocument();
+        // @codingStandardsIgnoreLine
+        /** @scrutinizer ignore-unhandled */ @$dom->loadHTML($markup);
+        // Looking for all <link> elements
+        $links = $dom->getElementsByTagName('link');
+        $hrefs = $this->filterHrefsFromCandidateLinkNodes($links);
+
+        return $hrefs;
+    }
+
+    /**
+     * Returns the list of google web fonts stylesheet hrefs found.
+     *
+     * @param DOMNodeList $nodes
+     *
+     * @return array
+     */
+    protected function filterHrefsFromCandidateLinkNodes(\DOMNodeList $nodes)
+    {
+        $hrefs = [];
+
+        foreach ($nodes as $node) {
+            if ($this->isCandidateLink($node)) {
+                $hrefs[] = $node->getAttribute('href');
+            }
+        }
+
+        return $hrefs;
+    }
+
+    /**
+     * Returns true if given DOMNode is a stylesheet and points to a Google Web Fonts url.
+     *
+     * @param DOMNode $node
+     *
+     * @return bool
+     */
+    protected function isCandidateLink(\DOMNode $node)
+    {
+        $rel  = $node->getAttribute('rel');
+        $href = $node->getAttribute('href');
+
+        return ('stylesheet' === $rel && $this->isGoogleWebFontUrl($href));
     }
 
     /**
@@ -301,11 +340,13 @@ class GoogleFontsOptimizer
         $started = false;
 
         if ($this->shouldBuffer()) {
-            // In theory, others might've already started buffering before us,
-            // which can prevent us from getting the markup
-            /*if ($this->shouldCleanOutputBuffers()) {
-                $this->cleanOutputBuffers();
-            }*/
+            /**
+             * N.B.
+             * In theory, others might've already started buffering before us,
+             * which can prevent us from getting the markup.
+             * If that becomes an issue, we can call shouldCleanOutputBuffers()
+             * and cleanOutputBuffers() here before starting our buffering.
+             */
 
             // Start our own buffering
             $started = ob_start([$this, 'endBuffering']);
@@ -334,11 +375,11 @@ class GoogleFontsOptimizer
     {
         $buffer = true;
 
-        if ($buffer && function_exists('\is_admin') && is_admin()) {
+        if ($buffer && function_exists('\is_admin') && /** @scrutinizer ignore-call */ is_admin()) {
             $buffer = false;
         }
 
-        if ($buffer && function_exists('\is_feed') && is_feed()) {
+        if ($buffer && function_exists('\is_feed') && /** @scrutinizer ignore-call */ is_feed()) {
             $buffer = false;
         }
 
@@ -387,37 +428,55 @@ class GoogleFontsOptimizer
         }
     }
 
+    /**
+     * Returns true if given markup should be processed.
+     *
+     * @param string $content
+     *
+     * @return bool
+     */
     protected function isMarkupDoable($content)
     {
-        $doable = true;
+        $html  = $this->hasHtmlTag($content);
+        $html5 = $this->hasHtml5Doctype($content);
+        $xsl   = $this->hasXslStylesheet($content);
 
-        $has_no_html_tag    = (false === stripos($content, '<html'));
-        $has_xsl_stylesheet = (false !== stripos($content, '<xsl:stylesheet'));
-        $has_html5_doctype  = (preg_match('/^<!DOCTYPE.+html>/i', $content) > 0);
-
-        if ($has_no_html_tag) {
-            // Can't be valid amp markup without an html tag preceding it
-            $is_amp_markup = false;
-        } else {
-            $is_amp_markup = $this->isAmpMarkup($content);
-        }
-
-        if ($has_no_html_tag && ! $has_html5_doctype || $is_amp_markup || $has_xsl_stylesheet) {
-            $doable = false;
-        }
-
-        return $doable;
+        return (($html || $html5) && ! $xsl);
     }
 
     /**
-     * Returns true if `$markup` is considered to be AMP.
-     * This is far from actual validation againts AMP spec, but it'll do for now.
+     * Returns true if given `$string` contains the HTML5 doctype.
+     *
+     * @param string $string
+     *
+     * @return bool
      */
-    protected function isAmpMarkup($content)
+    protected function hasHtml5Doctype($string)
     {
-        $is_amp_markup = preg_match('/<html[^>]*(?:amp|⚡)/i', $content);
+        return (preg_match('/^<!DOCTYPE.+html>/i', $string) > 0);
+    }
 
-        return (bool) $is_amp_markup;
+    /**
+     * Returns true when given `$string` contains an XSL stylesheet element.
+     *
+     * @param string $string
+     *
+     * @return bool
+     */
+    protected function hasXslStylesheet($string)
+    {
+        return (false !== stripos($string, '<xsl:stylesheet'));
+    }
+
+    /**
+     * Returns true when given `$string` contains the beginnings of an `<html>` tag.
+     *
+     * @param string $string
+     * @return bool
+     */
+    protected function hasHtmlTag($string)
+    {
+        return (false !== stripos($string, '<html'));
     }
 
     /**
@@ -438,14 +497,6 @@ class GoogleFontsOptimizer
     public function setCandidates(array $urls = [])
     {
         $this->candidates = $urls;
-    }
-
-    /**
-     * @param string $url
-     */
-    public function addCandidate($url)
-    {
-        $this->candidates[] = $url;
     }
 
     /**
@@ -564,31 +615,63 @@ class GoogleFontsOptimizer
     {
         $fonts = [];
 
-        foreach (explode('|', $params['family']) as $families) {
-            $font_family = explode(':', $families);
-            $subset      = false;
-            if (isset($params['subset'])) {
-                // Use the found subset parameter
-                $subset = $params['subset'];
-            } elseif (isset($font_family[2])) {
-                // Use the subset in the family string
-                $subset = $font_family[2];
-            }
-
-            // We need to have a name and a size
-            if (strlen($font_family[0]) > 0 && strlen($font_family[1]) > 0) {
-                $parts = [
-                    $font_family[0],
-                    $font_family[1]
-                ];
-                if ($subset) {
-                    $parts[] = $subset;
-                }
-                $fonts[] = implode(':', $parts);
+        foreach (explode('|', $params['family']) as $family) {
+            $font = $this->parseFontStringFamilyParam($family, $params);
+            if (!empty($font)) {
+                $fonts[] = $font;
             }
         }
 
         return $fonts;
+    }
+
+    protected function parseFontStringFamilyParam($family, array $params)
+    {
+        $font   = null;
+        $subset = false;
+        $family = explode(':', $family);
+
+        if (isset($params['subset'])) {
+            // Use the found subset query parameter
+            $subset = $params['subset'];
+        } elseif (isset($family[2])) {
+            // Use the subset in the family string if present
+            $subset = $family[2];
+        }
+
+        // We can have only the name specified in some cases
+        $parts = $this->buildFontStringParts($family, $subset);
+        $font  = implode(':', $parts);
+
+        return $font;
+    }
+
+    /**
+     * Validate and return needed font parts data.
+     *
+     * @param array $family
+     * @param bool $subset
+     *
+     * @return array
+     */
+    protected function buildFontStringParts(array $family, $subset = false)
+    {
+        $parts = [];
+
+        // First part is the font name, which should always be present
+        $parts[] = $family[0];
+
+        // Check if sizes are specified
+        if (isset($family[1]) && strlen($family[1]) > 0) {
+            $parts[] = $family[1];
+        }
+
+        // Add the subset if specified
+        if ($subset) {
+            $parts[] = $subset;
+        }
+
+        return $parts;
     }
 
     /**
@@ -625,7 +708,7 @@ class GoogleFontsOptimizer
         foreach ($fonts_array['complete'] as $font_string) {
             $parts = explode(':', $font_string);
             $name  = $parts[0];
-            $size  = $parts[1];
+            $size  = isset($parts[1]) ? $parts[1] : '';
 
             if (isset($fonts[$name])) {
                 // If a name already exists, append the new size
@@ -748,42 +831,71 @@ class GoogleFontsOptimizer
         $markup_type = apply_filters(self::FILTER_MARKUP_TYPE, self::DEFAULT_MARKUP_TYPE);
         if ('link' === $markup_type) {
             // Build standard link markup
-            $font_url = $this->buildGoogleFontsUrlFromFontsArray($fonts_array);
-            $href     = $this->encodeUnencodedAmpersands($font_url);
-            $markup   = '<link rel="stylesheet" type="text/css" href="' . $href . '">';
-
-            if (isset($fonts_array['partial'])) {
-                if (is_array($fonts_array['partial']['url'])) {
-                    foreach ($fonts_array['partial']['url'] as $other) {
-                        $markup .= '<link rel="stylesheet" type="text/css"';
-                        $markup .= ' href="' . $this->encodeUnencodedAmpersands($other) . '">';
-                    }
-                }
-            }
+            $markup = $this->buildFontsMarkupLinks($fonts_array);
         } else {
             // Bulding WebFont script loader
-            $families_array = [];
+            $markup = $this->buildFontsMarkupScript($fonts_array);
+        }
 
-            list($fonts, $subsets, $mapping) = $this->consolidateFontsArray($fonts_array);
-            foreach ($fonts as $name => $sizes) {
-                $family = $name . ':' . implode(',', $sizes);
-                if (isset($mapping[$name])) {
-                    $family .= ':' . implode(',', $mapping[$name]);
+        return $markup;
+    }
+
+    /**
+     * Given data from `getFontsArray()` builds `<link rel="stylesheet">` markup.
+     *
+     * @param array $fonts
+     *
+     * @return string
+     */
+    protected function buildFontsMarkupLinks(array $fonts)
+    {
+        $font_url = $this->buildGoogleFontsUrlFromFontsArray($fonts);
+        $href     = $this->encodeUnencodedAmpersands($font_url);
+        $markup   = '<link rel="stylesheet" type="text/css" href="' . $href . '">';
+
+        if (isset($fonts['partial'])) {
+            if (is_array($fonts['partial']['url'])) {
+                foreach ($fonts['partial']['url'] as $other) {
+                    $markup .= '<link rel="stylesheet" type="text/css"';
+                    $markup .= ' href="' . $this->encodeUnencodedAmpersands($other) . '">';
                 }
-                $families_array[] = $family;
             }
-            $families = "'" . implode("', '", $families_array) . "'";
+        }
 
-            // Load 'text' requests with the "custom" module
-            $custom = '';
-            if (isset($fonts_array['partial'])) {
-                $custom  = ",\n    custom: {\n";
-                $custom .= "        families: [ '" . implode("', '", $fonts_array['partial']['name']) . "' ],\n";
-                $custom .= "        urls: [ '" . implode("', '", $fonts_array['partial']['url']) . "' ]\n";
-                $custom .= '    }';
+        return $markup;
+    }
+
+    /**
+     * Given data from `getFontsArray()` builds WebFont loader script markup.
+     *
+     * @param array $fonts
+     *
+     * @return string
+     */
+    protected function buildFontsMarkupScript(array $fonts)
+    {
+        $families_array = [];
+
+        list($names, $subsets, $mapping) = $this->consolidateFontsArray($fonts);
+        foreach ($names as $name => $sizes) {
+            $family = $name . ':' . implode(',', $sizes);
+            if (isset($mapping[$name])) {
+                $family .= ':' . implode(',', $mapping[$name]);
             }
+            $families_array[] = $family;
+        }
+        $families = "'" . implode("', '", $families_array) . "'";
 
-            $markup = <<<HTML
+        // Load 'text' requests with the "custom" module
+        $custom = '';
+        if (isset($fonts['partial'])) {
+            $custom  = ",\n    custom: {\n";
+            $custom .= "        families: [ '" . implode("', '", $fonts['partial']['name']) . "' ],\n";
+            $custom .= "        urls: [ '" . implode("', '", $fonts['partial']['url']) . "' ]\n";
+            $custom .= '    }';
+        }
+
+        $markup = <<<MARKUP
 <script type="text/javascript">
 WebFontConfig = {
     google: { families: [ {$families} ] }{$custom}
@@ -798,8 +910,7 @@ WebFontConfig = {
     s.parentNode.insertBefore(wf, s);
 })();
 </script>
-HTML;
-        }
+MARKUP;
 
         return $markup;
     }
