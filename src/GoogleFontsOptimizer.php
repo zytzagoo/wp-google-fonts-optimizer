@@ -3,6 +3,7 @@
 namespace ZWF;
 
 use ZWF\GoogleFontsOptimizerUtils as Utils;
+use ZWF\GoogleFontsCollection as Collection;
 
 class GoogleFontsOptimizer
 {
@@ -18,6 +19,22 @@ class GoogleFontsOptimizer
     protected $candidates = [];
 
     protected $enqueued = [];
+
+    /**
+     * @param array $urls
+     */
+    public function setCandidates(array $urls = [])
+    {
+        $this->candidates = $urls;
+    }
+
+    /**
+     * @return array
+     */
+    public function getCandidates()
+    {
+        return $this->candidates;
+    }
 
     /**
      * Like the wind.
@@ -50,24 +67,6 @@ class GoogleFontsOptimizer
     }
 
     /**
-     * Returns true when an array isn't empty and has enough elements.
-     *
-     * @param array $candidates
-     *
-     * @return bool
-     */
-    protected function hasEnoughElements(array $candidates = [])
-    {
-        $enough = true;
-
-        if (empty($candidates) || count($candidates) < 2) {
-            $enough = false;
-        }
-
-        return $enough;
-    }
-
-    /**
      * Callback to hook into `wp_print_styles`.
      * It processes enqueued styles and combines any multiple google fonts
      * requests into a single one (and removes the enqueued styles handles
@@ -91,23 +90,21 @@ class GoogleFontsOptimizer
         // Set the list of found urls we matched
         $this->setCandidates(array_values($candidate_handles));
 
-        // Get fonts array data from candidates
-        $fonts_array = $this->getFontsArray($this->getCandidates());
-        if (isset($fonts_array['complete'])) {
-            $combined_font_url = Utils::buildGoogleFontsUrlFromFontsArray($fonts_array);
-            $handle_name       = 'zwf-gfo-combined';
-            $this->enqueueStyle($handle_name, $combined_font_url);
-            $handles[] = $handle_name;
-        }
+        // Get collection from candidates
+        $collection = new GoogleFontsCollection($this->getCandidates());
 
-        if (isset($fonts_array['partial'])) {
-            $cnt = 0;
-            foreach ($fonts_array['partial']['url'] as $url) {
-                $cnt++;
-                $handle_name = 'zwf-gfo-combined-txt-' . $cnt;
-                $this->enqueueStyle($handle_name, $url);
-                $handles[] = $handle_name;
-            }
+        // Grab combined url for all the fonts in the collection
+        $font_url    = $collection->getCombinedUrl();
+        $handle_name = 'zwf-gfo-combined';
+        $this->enqueueStyle($handle_name, $font_url);
+        $handles[] = $handle_name;
+
+        // Process 'text-only' requests if there are any...
+        $texts = $collection->getTextUrls();
+        foreach ($texts as $k => $url) {
+            $handle_name = 'zwf-gfo-combined-txt-' . ($k + 1);
+            $this->enqueueStyle($handle_name, $url);
+            $handles[] = $handle_name;
         }
 
         // Remove/dequeue the ones we just combined above
@@ -147,6 +144,24 @@ class GoogleFontsOptimizer
         }
 
         return $candidate_handles;
+    }
+
+    /**
+     * Returns true when an array isn't empty and has enough elements.
+     *
+     * @param array $candidates
+     *
+     * @return bool
+     */
+    protected function hasEnoughElements(array $candidates = [])
+    {
+        $enough = true;
+
+        if (empty($candidates) || count($candidates) < 2) {
+            $enough = false;
+        }
+
+        return $enough;
     }
 
     /**
@@ -239,9 +254,9 @@ class GoogleFontsOptimizer
         }
 
         // Process what we found and modify original markup with our replacement
-        $fonts_array = $this->getFontsArray($candidates);
-        $font_markup = $this->buildFontsMarkup($fonts_array);
-        $markup      = $this->modifyMarkup($markup, $font_markup, $fonts_array['links']);
+        $collection  = new GoogleFontsCollection($candidates);
+        $font_markup = $this->buildFontsMarkup($collection);
+        $markup      = $this->modifyMarkup($markup, $font_markup, $collection->getOriginalLinks());
 
         return $markup;
     }
@@ -445,149 +460,21 @@ class GoogleFontsOptimizer
     }
 
     /**
-     * @param array $urls
-     */
-    public function setCandidates(array $urls = [])
-    {
-        $this->candidates = $urls;
-    }
-
-    /**
-     * @return array
-     */
-    public function getCandidates()
-    {
-        return $this->candidates;
-    }
-
-    /**
-     * Given a list of google fonts urls it returns another array of data
-     * representing found families/sizes/subsets/urls.
+     * Given a GoogleFontsCollection builds HTML markup for found google fonts.
      *
-     * @param array $candidates
-     *
-     * @return array
-     */
-    protected function getFontsArray(array $candidates = [])
-    {
-        $fonts = [];
-
-        foreach ($candidates as $candidate) {
-            $fonts['links'][] = $candidate;
-
-            $params = [];
-            parse_str(parse_url($candidate, PHP_URL_QUERY), $params);
-
-            if (isset($params['text'])) {
-                // Fonts with character limitations are segregated into
-                // under 'partial' (when `text` query param is used)
-                $font_family                = explode(':', $params['family']);
-                $fonts['partial']['name'][] = $font_family[0];
-                $fonts['partial']['url'][]  = Utils::httpsify($candidate);
-            } else {
-                $fontstrings = $this->buildFontStringsFromQueryParams($params);
-                foreach ($fontstrings as $font) {
-                    $fonts['complete'][] = $font;
-                }
-            }
-        }
-
-        return $fonts;
-    }
-
-    /**
-     * Looks for and parses the `family` query string value into a string
-     * that Google Fonts expects (family, weights and subsets separated by
-     * a semicolon).
-     *
-     * @param array $params
-     *
-     * @return array
-     */
-    protected function buildFontStringsFromQueryParams(array $params)
-    {
-        $fonts = [];
-
-        foreach (explode('|', $params['family']) as $family) {
-            $font = $this->parseFontStringFamilyParam($family, $params);
-            if (! empty($font)) {
-                $fonts[] = $font;
-            }
-        }
-
-        return $fonts;
-    }
-
-    /**
-     * @param string $family
-     * @param array $params
+     * @param Collection $fonts
      *
      * @return string
      */
-    protected function parseFontStringFamilyParam($family, array $params)
-    {
-        $subset = false;
-        $family = explode(':', $family);
-
-        if (isset($params['subset'])) {
-            // Use the found subset query parameter
-            $subset = $params['subset'];
-        } elseif (isset($family[2])) {
-            // Use the subset in the family string if present
-            $subset = $family[2];
-        }
-
-        // $family can have a lot of thing specified with separators etc.
-        $parts = $this->buildFontStringParts($family, $subset);
-        $font  = implode(':', $parts);
-
-        return $font;
-    }
-
-    /**
-     * Makes sure we only include what we needValidate and return needed font parts data.
-     *
-     * @param array $family
-     * @param bool $subset
-     *
-     * @return array
-     */
-    protected function buildFontStringParts(array $family, $subset = false)
-    {
-        $parts = [];
-
-        // First part is the font name, which should always be present
-        $parts[] = $family[0];
-
-        // Check if sizes are specified
-        if (isset($family[1]) && strlen($family[1]) > 0) {
-            $parts[] = $family[1];
-        }
-
-        // Add the subset if specified
-        if ($subset) {
-            $parts[] = $subset;
-        }
-
-        return $parts;
-    }
-
-    /**
-     * Given data from `getFontsArray()` builds HTML markup for found google fonts.
-     *
-     * @param array $fonts_array
-     *
-     * @return string
-     */
-    protected function buildFontsMarkup(array $fonts_array)
+    protected function buildFontsMarkup(Collection $fonts)
     {
         $markup_type = apply_filters(self::FILTER_MARKUP_TYPE, self::DEFAULT_MARKUP_TYPE);
         if ('link' === $markup_type) {
             // Build standard link markup
-            $markup = Utils::buildFontsMarkupLinks($fonts_array);
+            $markup = Utils::buildFontsMarkupLinks($fonts);
         } else {
             // Bulding WebFont script loader
-            $markup = Utils::buildFontsMarkupScript($fonts_array);
+            $markup = Utils::buildFontsMarkupScript($fonts);
         }
 
         return $markup;

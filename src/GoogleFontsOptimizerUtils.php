@@ -2,6 +2,8 @@
 
 namespace ZWF;
 
+use ZWF\GoogleFontsCollection as Collection;
+
 class GoogleFontsOptimizerUtils
 {
     /**
@@ -108,11 +110,20 @@ class GoogleFontsOptimizerUtils
     public static function dedupValues(array $data, $sort = false)
     {
         foreach ($data as $key => $values) {
-            $parts = explode(',', $values);
+            if (is_array($values)) {
+                $parts = $values;
+            } else {
+                $parts = explode(',', $values);
+            }
+
             $parts = array_unique($parts);
+
+            // Perform sort if specified
             if (false !== $sort) {
                 sort($parts, (int) $sort);
             }
+
+            // Store back
             $data[$key] = $parts;
         }
 
@@ -120,104 +131,39 @@ class GoogleFontsOptimizerUtils
     }
 
     /**
-     * Given a "raw" getFontsArray(), deduplicate and sort the data
-     * and return a new array with three keys:
-     * - the first key contains sorted list of fonts/sizes
-     * - the second key contains the global list of requested subsets
-     * - the third key contains the map of requested font names and their subsets
+     * Given a GoogleFontsCollection it builds needed `<link rel="stylesheet">` markup.
      *
-     * @param array $fonts_array
-     *
-     * @return array
-     */
-    public static function consolidateFontsArray(array $fonts_array)
-    {
-        $fonts         = [];
-        $subsets       = [];
-        $fonts_to_subs = [];
-
-        foreach ($fonts_array['complete'] as $font_string) {
-            $parts = explode(':', $font_string);
-            $name  = $parts[0];
-            $size  = isset($parts[1]) ? $parts[1] : '';
-
-            if (isset($fonts[$name])) {
-                // If a name already exists, append the new size
-                $fonts[$name] .= ',' . $size;
-            } else {
-                // Create a new key for the name and size
-                $fonts[$name] = $size;
-            }
-
-            // Check if subset is specified as the third element
-            if (isset($parts[2])) {
-                $subset = $parts[2];
-                // Collect all the subsets defined into a single array
-                $elements = explode(',', $subset);
-                foreach ($elements as $sub) {
-                    $subsets[] = $sub;
-                }
-                // Keeping a separate map of names => requested subsets for
-                // webfontloader purposes
-                if (isset($fonts_to_subs[$name])) {
-                    $fonts_to_subs[$name] .= ',' . $subset;
-                } else {
-                    $fonts_to_subs[$name] = $subset;
-                }
-            }
-        }
-
-        // Remove duplicate subsets
-        $subsets = array_unique($subsets);
-
-        // Sanitize and de-dup name/sizes pairs
-        $fonts = self::dedupValues($fonts, SORT_REGULAR); // sorts values (sizes)
-
-        // Sorts by font names alphabetically
-        ksort($fonts);
-
-        // Sanitize and de-dup $fonts_to_subs mapping
-        $fonts_to_subs = self::dedupValues($fonts_to_subs, false); // no sort
-
-        return [$fonts, $subsets, $fonts_to_subs];
-    }
-
-    /**
-     * Given data from `getFontsArray()` builds `<link rel="stylesheet">` markup.
-     *
-     * @param array $fonts
+     * @param Collection $fonts
      *
      * @return string
      */
-    public static function buildFontsMarkupLinks(array $fonts)
+    public static function buildFontsMarkupLinks(Collection $fonts)
     {
-        $font_url = self::buildGoogleFontsUrlFromFontsArray($fonts);
+        $font_url = $fonts->getCombinedUrl();
         $href     = self::encodeUnencodedAmpersands($font_url);
         $markup   = '<link rel="stylesheet" type="text/css" href="' . $href . '">';
 
-        if (isset($fonts['partial']) && is_array($fonts['partial']['url'])) {
-            foreach ($fonts['partial']['url'] as $other) {
-                $markup .= '<link rel="stylesheet" type="text/css"';
-                $markup .= ' href="' . self::encodeUnencodedAmpersands($other) . '">';
-            }
+        foreach ($fonts->getTextUrls() as $url) {
+            $markup .= '<link rel="stylesheet" type="text/css"';
+            $markup .= ' href="' . self::encodeUnencodedAmpersands($url) . '">';
         }
 
         return $markup;
     }
 
     /**
-     * Given data from `GoogleFontsOptimizer::getFontsArray()` builds
-     * WebFont loader script markup.
+     * Given a GoogleFontsCollection it builds the WebFont loader script markup.
      *
-     * @param array $fonts
+     * @param Collection $fonts
      *
      * @return string
      */
-    public static function buildFontsMarkupScript(array $fonts)
+    public static function buildFontsMarkupScript(Collection $collection)
     {
         $families_array = [];
 
-        list($names, $subsets, $mapping) = self::consolidateFontsArray($fonts);
+        list($names, $mapping) = $collection->getScriptData();
+
         foreach ($names as $name => $sizes) {
             $family = $name . ':' . implode(',', $sizes);
             if (isset($mapping[$name])) {
@@ -229,10 +175,10 @@ class GoogleFontsOptimizerUtils
 
         // Load 'text' requests with the "custom" module
         $custom = '';
-        if (isset($fonts['partial'])) {
+        if ($collection->hasText()) {
             $custom  = ",\n    custom: {\n";
-            $custom .= "        families: [ '" . implode("', '", $fonts['partial']['name']) . "' ],\n";
-            $custom .= "        urls: [ '" . implode("', '", $fonts['partial']['url']) . "' ]\n";
+            $custom .= "        families: [ '" . implode("', '", $collection->getTextNames()) . "' ],\n";
+            $custom .= "        urls: [ '" . implode("', '", $collection->getTextUrls()) . "' ]\n";
             $custom .= '    }';
         }
 
@@ -317,16 +263,26 @@ MARKUP;
     }
 
     /**
-     * Creates a single google fonts url from data returned by `getFontsArray()`.
+     * Flatten an array without recursion.
      *
-     * @param array $fonts_array
+     * @param array $arr
      *
-     * @return string
+     * @return array
      */
-    public static function buildGoogleFontsUrlFromFontsArray(array $fonts_array)
+    public static function arrayFlattenIterative(array $arr)
     {
-        list($fonts, $subsets) = self::consolidateFontsArray($fonts_array);
+        $flat  = [];
+        $stack = array_values($arr);
 
-        return self::buildGoogleFontsUrl($fonts, $subsets);
+        while ($stack) {
+            $value = array_shift($stack);
+            if (is_array($value)) {
+                $stack = array_merge(array_values($value), $stack);
+            } else {
+                $flat[] = $value;
+            }
+        }
+
+        return $flat;
     }
 }
