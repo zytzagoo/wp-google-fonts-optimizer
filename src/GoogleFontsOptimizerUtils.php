@@ -274,7 +274,7 @@ MARKUP;
         $flat  = [];
         $stack = array_values($arr);
 
-        while ($stack) {
+        while (! empty($stack)) {
             $value = array_shift($stack);
             if (is_array($value)) {
                 $stack = array_merge(array_values($value), $stack);

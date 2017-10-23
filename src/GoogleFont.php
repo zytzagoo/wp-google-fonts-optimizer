@@ -33,12 +33,7 @@ class GoogleFont
      */
     public function setSizes($sizes)
     {
-        if (is_array($sizes)) {
-            $this->sizes = $sizes;
-        }
-        if (is_string($sizes)) {
-            $this->sizes = array_map('trim', explode(',', $sizes));
-        }
+        $this->stringOrArraySetter('sizes', $sizes);
     }
 
     public function getSizes()
@@ -56,12 +51,7 @@ class GoogleFont
      */
     public function setSubsets($subsets)
     {
-        if (is_array($subsets)) {
-            $this->subsets = $subsets;
-        }
-        if (is_string($subsets)) {
-            $this->subsets = array_map('trim', explode(',', $subsets));
-        }
+        $this->stringOrArraySetter('subsets', $subsets);
     }
 
     public function getSubsets()
@@ -73,6 +63,8 @@ class GoogleFont
     {
         return implode(',', $this->subsets);
     }
+
+
 
     /**
      * @return string
@@ -87,6 +79,26 @@ class GoogleFont
                 $this->getSubsetsString()
             ]
         );
+    }
+
+    /**
+     * Setter for given `$property` which makes sure that if a string `$value`
+     * is given (in which multiple values can be separated by a comma) it ends
+     * up being converted into an array.
+     *
+     * @param string $property
+     * @param string|array $value
+     *
+     * @return void
+     */
+    private function stringOrArraySetter($property, $value)
+    {
+        if (is_array($value)) {
+            $this->$property = $value;
+        }
+        if (is_string($value)) {
+            $this->$property = array_map('trim', explode(',', $value));
+        }
     }
 
     /**

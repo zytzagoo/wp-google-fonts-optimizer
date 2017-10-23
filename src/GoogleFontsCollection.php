@@ -13,6 +13,8 @@ class GoogleFontsCollection
 
     protected $complete = [];
 
+    protected $fonts = [];
+
     protected $subsetsMap = [];
 
     protected $namedSizes = [];
@@ -83,7 +85,7 @@ class GoogleFontsCollection
         }
 
         // Deduplicate values and don't sort the subsets map
-        $this->subsetMap = Utils::dedupValues($this->subsetsMap, false); // no sort
+        $this->subsetsMap = Utils::dedupValues($this->subsetsMap, false); // no sort
 
         // Maintain the list/hash of name => sizes when adding a new one too
         $this->namedSizes = $this->buildNamedsizesMap();
@@ -94,7 +96,7 @@ class GoogleFontsCollection
      */
     protected function getSubsetsMap()
     {
-        return $this->subsetMap;
+        return $this->subsetsMap;
     }
 
     protected function addTextFont($name, $url)
