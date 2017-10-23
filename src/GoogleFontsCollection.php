@@ -76,11 +76,7 @@ class GoogleFontsCollection
             // Nothing found yet, create a new key
             $this->subsetsMap[$name] = $subsets;
         } else {
-            // Something is in there already, append to that.
-            // Existing subsetsMap[$name] might not be an array
-            if (! is_array($this->subsetsMap[$name])) {
-                $this->subsetsMap[$name] = (array) $this->subsetsMap[$name];
-            }
+            // Something is in there already, merge
             $this->subsetsMap[$name] = array_merge($this->subsetsMap[$name], (array) $subsets);
         }
 
