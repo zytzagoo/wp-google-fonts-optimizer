@@ -6,7 +6,7 @@
  * Description:  Automatically detect and combine multiple Google Web Fonts requests into a single one.
  * Author:       zytzagoo
  * Author URI:   https://zytzagoo.net
- * Version:      0.0.1
+ * Version:      0.2.0
  * Requires PHP: 5.4
  *
  * @package ZWF\GoogleFontsOptimizer
