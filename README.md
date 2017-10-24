@@ -1,13 +1,16 @@
-# WP Google Fonts Optimizer [![Build Status](https://img.shields.io/travis/zytzagoo/wp-google-fonts-optimizer.svg?style=flat-square)](https://travis-ci.org/zytzagoo/wp-google-fonts-optimizer)
+# WP Google Fonts Optimizer
+
+[![Build Status](https://img.shields.io/travis/zytzagoo/wp-google-fonts-optimizer.svg?style=flat-square)](https://travis-ci.org/zytzagoo/wp-google-fonts-optimizer)
+[![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
+[![Quality Score](https://img.shields.io/scrutinizer/g/zytzagoo/wp-google-fonts-optimizer.svg?style=flat-square)](https://scrutinizer-ci.com/g/zytzagoo/wp-google-fonts-optimizer)
 
 WP Google Fonts Optimizer is a super-easy way to ensure your WordPress theme is
 not performing unnecessary extra requests for Google Web Fonts (in cases when
 you use more than one font family on a page).
 
-It automatically scans your enqueued stylesheets and combines them into a single
-request (when there are multiple requests found).
+It automatically scans your enqueued stylesheets and combines them into a single request when needed.
 
-Optionally, in the case of poorly coded themes (and/or conflicts with some other
+Optionally, for poorly coded themes (and/or conflicts with other
 plugins), it can scan and modify the generated markup.
 
 ## Download
@@ -27,8 +30,7 @@ Install and activate the plugin, it should do it's job automatically after that.
 ## Details / Troubleshooting
 
 By default, the plugin enqueues a new stylesheet (with combined font families
-etc.) and removes any found/enqueueunnecessaryd stylesheets (if there is more
-than one stylesheet found).
+etc.) and removes any found/enqueued stylesheets.
 
 If your theme doesn't enqueue the Google Fonts properly (or if there is a
 potential conflict with another plugin/theme on your site), you can modify the

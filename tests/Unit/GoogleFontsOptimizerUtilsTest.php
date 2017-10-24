@@ -14,20 +14,34 @@ class GoogleFontsOptimizerUtilsTest extends TestCase
 {
     public function testDedupValues()
     {
+        // Test with comma-separated string of values
         $a = [
             'key' => '400,700italic,400italic'
         ];
+        // Sorted
         $this->assertSame(
             ['key' => ['400', '400italic', '700italic']],
             Utils::dedupValues($a, SORT_REGULAR)
         );
+        // Unsorted
+        $this->assertSame(
+            ['key' => ['400', '700italic', '400italic']],
+            Utils::dedupValues($a, false)
+        );
 
+        // Test with array of values
         $b = [
             'key' => ['400', '700italic', '400italic']
         ];
+        // Sorted
         $this->assertSame(
             ['key' => ['400', '400italic', '700italic']],
             Utils::dedupValues($a, SORT_REGULAR)
+        );
+        // Unsorted
+        $this->assertSame(
+            ['key' => ['400', '700italic', '400italic']],
+            Utils::dedupValues($a, false)
         );
     }
 

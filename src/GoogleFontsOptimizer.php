@@ -388,45 +388,39 @@ class GoogleFontsOptimizer
      * @return bool
      *
      * @codeCoverageIgnore
-     * @scrutinizer ignore
      */
     protected function shouldBuffer()
     {
-        $buffer = true;
-
-        if ($buffer && function_exists('\is_admin') && /** @scrutinizer ignore-call */ \is_admin()) {
-            $buffer = false;
+        // is_admin() returns true for ajax requests too (which we skip)
+        if (function_exists('\is_admin') && /** @scrutinizer ignore-call */ \is_admin()) {
+            return false;
         }
 
-        if ($buffer && function_exists('\is_feed') && /** @scrutinizer ignore-call */ \is_feed()) {
-            $buffer = false;
+        if (function_exists('\is_feed') && /** @scrutinizer ignore-call */ \is_feed()) {
+            return false;
         }
 
-        if ($buffer && defined('\DOING_AJAX')) {
-            $buffer = false;
+        if (defined('\DOING_CRON') && \DOING_CRON) {
+            return false;
         }
 
-        if ($buffer && defined('\DOING_CRON')) {
-            $buffer = false;
+        if (defined('\WP_CLI')) {
+            return false;
         }
 
-        if ($buffer && defined('\WP_CLI')) {
-            $buffer = false;
+        if (defined('\APP_REQUEST')) {
+            return false;
         }
 
-        if ($buffer && defined('\APP_REQUEST')) {
-            $buffer = false;
+        if (defined('\XMLRPC_REQUEST')) {
+            return false;
         }
 
-        if ($buffer && defined('\XMLRPC_REQUEST')) {
-            $buffer = false;
+        if (defined('\SHORTINIT') && \SHORTINIT) {
+            return false;
         }
 
-        if ($buffer && defined('\SHORTINIT') && \SHORTINIT) {
-            $buffer = false;
-        }
-
-        return $buffer;
+        return true;
     }
 
     /**

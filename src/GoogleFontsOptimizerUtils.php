@@ -240,12 +240,10 @@ MARKUP;
         $font_args = [];
         $family    = [];
 
+        $fonts = self::dedupValues($fonts, false); // no sort
         foreach ($fonts as $font_name => $font_weight) {
-            if (is_array($font_weight)) {
-                $font_weight = implode(',', $font_weight);
-            }
             // Trimming end colon handles edge case of being given an empty $font_weight
-            $family[] = trim(trim($font_name) . ':' . trim($font_weight), ':');
+            $family[] = trim(trim($font_name) . ':' . implode(',', $font_weight), ':');
         }
 
         $font_args['family'] = implode('|', $family);
