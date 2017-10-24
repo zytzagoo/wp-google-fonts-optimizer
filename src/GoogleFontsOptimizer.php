@@ -128,7 +128,7 @@ class GoogleFontsOptimizer
      *
      * @return array
      */
-    public function findCandidateHandles(array $handles)
+    protected function findCandidateHandles(array $handles)
     {
         $handler           = /** @scrutinizer ignore-call */ \wp_styles();
         $candidate_handles = [];
@@ -171,7 +171,7 @@ class GoogleFontsOptimizer
      *
      * @return void
      */
-    public function dequeueStyleHandles(array $handles)
+    protected function dequeueStyleHandles(array $handles)
     {
         foreach ($handles as $handle => $url) {
             // @codeCoverageIgnoreStart
@@ -199,7 +199,7 @@ class GoogleFontsOptimizer
      *
      * @return void
      */
-    public function enqueueStyle($handle, $url, $deps = [], $version = null)
+    protected function enqueueStyle($handle, $url, $deps = [], $version = null)
     {
         // @codeCoverageIgnoreStart
         if (function_exists('\wp_enqueue_style')) {
@@ -212,7 +212,7 @@ class GoogleFontsOptimizer
     }
 
     /**
-     * Get the entire list of enqueued styles or a specific one if $handle is specified.
+     * Get the list of enqueued styles or a specific one if $handle is specified.
      *
      * @param string|null $handle Style "slug"
      *
@@ -271,8 +271,10 @@ class GoogleFontsOptimizer
     protected function parseMarkupForHrefs($markup)
     {
         $dom = new \DOMDocument();
+
         // @codingStandardsIgnoreLine
         /** @scrutinizer ignore-unhandled */ @$dom->loadHTML($markup);
+
         // Looking for all <link> elements
         $links = $dom->getElementsByTagName('link');
         $hrefs = $this->filterHrefsFromCandidateLinkNodes($links);
@@ -325,7 +327,7 @@ class GoogleFontsOptimizer
      *
      * @return string
      */
-    public function modifyMarkup($markup, $font_markup, array $font_links)
+    protected function modifyMarkup($markup, $font_markup, array $font_links)
     {
         $new_markup = $markup;
 
@@ -384,17 +386,19 @@ class GoogleFontsOptimizer
      * Determines whether the current WP request should be buffered.
      *
      * @return bool
+     *
      * @codeCoverageIgnore
+     * @scrutinizer ignore
      */
     protected function shouldBuffer()
     {
         $buffer = true;
 
-        if ($buffer && function_exists('\is_admin') && /** @scrutinizer ignore-call */ is_admin()) {
+        if ($buffer && function_exists('\is_admin') && /** @scrutinizer ignore-call */ \is_admin()) {
             $buffer = false;
         }
 
-        if ($buffer && function_exists('\is_feed') && /** @scrutinizer ignore-call */ is_feed()) {
+        if ($buffer && function_exists('\is_feed') && /** @scrutinizer ignore-call */ \is_feed()) {
             $buffer = false;
         }
 

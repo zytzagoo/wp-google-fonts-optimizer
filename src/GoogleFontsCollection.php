@@ -11,8 +11,9 @@ class GoogleFontsCollection
 
     protected $texts = [];
 
-    protected $complete = [];
-
+    /**
+     * @var array|ZWF\GoogleFont[]
+     */
     protected $fonts = [];
 
     protected $subsetsMap = [];
@@ -43,23 +44,13 @@ class GoogleFontsCollection
             if ('text' === $bucket) {
                 $font_family = explode(':', $font);
                 $this->addTextFont($font_family[0], Utils::httpsify($url));
-            } else {
-                $this->addComplete($font);
             }
         }
     }
 
-    /**
-     * Returns an array of data needed to generated webfontloader script markup.
-     *
-     * @return array
-     */
-    public function getScriptData()
+    protected function addLink($url)
     {
-        return [
-            $this->getNamedSizesMap(),
-            $this->getSubsetsMap()
-        ];
+        $this->links[] = $url;
     }
 
     protected function addFontFromString($fontstring, $bucket = 'complete')
@@ -87,28 +78,36 @@ class GoogleFontsCollection
         $this->namedSizes = $this->buildNamedsizesMap();
     }
 
-    /**
-     * @return array
-     */
-    protected function getSubsetsMap()
-    {
-        return $this->subsetsMap;
-    }
-
     protected function addTextFont($name, $url)
     {
         $this->texts['name'][] = $name;
         $this->texts['url'][]  = $url;
     }
 
-    protected function addComplete($fontstring)
+    /**
+     * Returns an array of data needed to generated webfontloader script markup.
+     *
+     * @return array
+     */
+    public function getScriptData()
     {
-        $this->complete[] = $fontstring;
+        return [
+            $this->getNamedSizesMap(),
+            $this->getSubsetsMap()
+        ];
     }
 
-    protected function addLink($url)
+    public function getNamedSizesMap()
     {
-        $this->links[] = $url;
+        return $this->namedSizes;
+    }
+
+    /**
+     * @return array
+     */
+    protected function getSubsetsMap()
+    {
+        return $this->subsetsMap;
     }
 
     public function getOriginalLinks()
@@ -143,26 +142,28 @@ class GoogleFontsCollection
         return $this->texts['name'];
     }
 
+    /**
+     * @return ZWF\GoogleFont[]
+     */
     public function getFonts()
     {
         return $this->fonts['complete'];
     }
 
-    public function getFontsText()
-    {
-        return $this->fonts['text'];
-    }
-
+    /**
+     * @return string
+     */
     public function getCombinedUrl()
     {
-        return Utils::buildGoogleFontsUrl($this->getNamedSizesMap(), $this->getSubsets());
+        return Utils::buildGoogleFontsUrl(
+            $this->getNamedSizesMap(),
+            $this->getSubsets()
+        );
     }
 
-    public function getNamedSizesMap()
-    {
-        return $this->namedSizes;
-    }
-
+    /**
+     * @return array
+     */
     public function getSubsets()
     {
         $subsets = [];
@@ -203,9 +204,8 @@ class GoogleFontsCollection
     }
 
     /**
-     * Looks for and parses the `family` query string value into a string
-     * that Google Fonts expects (family, weights and subsets separated by
-     * a semicolon).
+     * Looks for and parses the `family` key in `$params` array to get back
+     * the list of fonts/sizes/subsets requested via a GoogleFonts url.
      *
      * @param array $params
      *

@@ -20,6 +20,10 @@ class GoogleFont
 
     public function setName($name)
     {
+        if (empty($name)) {
+            throw new \InvalidArgumentException('Font `$name` is required!');
+        }
+
         $this->name = $name;
     }
 
@@ -34,6 +38,9 @@ class GoogleFont
     public function setSizes($sizes)
     {
         $this->stringOrArraySetter('sizes', $sizes);
+
+        $this->sizes = array_unique($this->sizes);
+        sort($this->sizes, SORT_REGULAR);
     }
 
     public function getSizes()
@@ -52,6 +59,8 @@ class GoogleFont
     public function setSubsets($subsets)
     {
         $this->stringOrArraySetter('subsets', $subsets);
+
+        $this->subsets = array_unique($this->subsets, SORT_STRING);
     }
 
     public function getSubsets()
@@ -64,21 +73,25 @@ class GoogleFont
         return implode(',', $this->subsets);
     }
 
-
-
     /**
      * @return string
      */
     public function __toString()
     {
-        return implode(
-            ':',
-            [
-                $this->getName(),
-                $this->getSizesString(),
-                $this->getSubsetsString()
-            ]
-        );
+        $parts   = [
+            $this->getName()
+        ];
+        $sizes   = $this->getSizesString();
+        $subsets = $this->getSubsetsString();
+
+        if (! empty($sizes)) {
+            $parts[] = $sizes;
+        }
+        if (! empty($subsets)) {
+            $parts[] = $subsets;
+        }
+
+        return implode(':', $parts);
     }
 
     /**

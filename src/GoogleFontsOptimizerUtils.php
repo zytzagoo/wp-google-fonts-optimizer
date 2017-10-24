@@ -18,6 +18,7 @@ class GoogleFontsOptimizerUtils
     public static function encodeUnencodedAmpersands($url, $amp = '&amp;')
     {
         $amp = trim($amp);
+
         if (empty($amp)) {
             $amp = '&amp;';
         }
