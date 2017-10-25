@@ -38,7 +38,7 @@ class GoogleFontsOptimizer
 
     /**
      * Like the wind.
-     * Main entry point when hooked/called from WP action.
+     * Main entry point when hooked/called from the `wp` action.
      *
      * @return void
      */
@@ -68,9 +68,10 @@ class GoogleFontsOptimizer
 
     /**
      * Callback to hook into `wp_print_styles`.
-     * It processes enqueued styles and combines any multiple google fonts
-     * requests into a single one (and removes the enqueued styles handles
-     * and replaces them with a single combined enqueued style request/handle).
+     * It processes enqueued styles and combines any multiple Google Fonts
+     * requests into a single one.
+     * It removes the enqueued styles handles and replaces them with a single
+     * combined enqueued style request/handle.
      *
      * TODO/FIXME: Investigate how this works out when named deps are used somewhere?
      *
@@ -118,7 +119,7 @@ class GoogleFontsOptimizer
 
     /**
      * Given a list of WP style handles return a new "named map" of handles
-     * we care about along with their urls.
+     * we care about along with their URLs.
      *
      * TODO/FIXME: See if named deps will need to be taken care of...
      *
@@ -212,7 +213,7 @@ class GoogleFontsOptimizer
     }
 
     /**
-     * Get the list of enqueued styles or a specific one if $handle is specified.
+     * Get the list of enqueued styles or a specific one if `$handle` is specified.
      *
      * @param string|null $handle Style "slug"
      *
@@ -230,9 +231,9 @@ class GoogleFontsOptimizer
     }
 
     /**
-     * Callback to invoke in oder to modify google fonts found in the HTML markup.
-     * Returns modified markup in which multiple google fonts requests are
-     * combined into a single one (if multiple requests are found).
+     * Callback to invoke in oder to modify Google Fonts stylesheets found in
+     * the HTML markup.
+     * Returns modified markup if it contains multiple Google Fonts stylesheets.
      *
      * @param string $markup
      *
@@ -262,7 +263,7 @@ class GoogleFontsOptimizer
     }
 
     /**
-     * Given a string of $markup, returns an array of hrefs we're interested in.
+     * Given a `$markup` string it returns an array of hrefs we're interested in.
      *
      * @param string $markup
      *
@@ -283,7 +284,7 @@ class GoogleFontsOptimizer
     }
 
     /**
-     * Returns the list of google web fonts stylesheet hrefs found.
+     * Returns the list of Google Fonts stylesheet hrefs found.
      *
      * @param \DOMNodeList $nodes
      *
@@ -352,6 +353,11 @@ class GoogleFontsOptimizer
         return $new_markup;
     }
 
+    /**
+     * Returns true if output buffering has been started, false otherwise.
+     *
+     * @return bool
+     */
     public function startBuffering()
     {
         $started = false;
@@ -372,6 +378,12 @@ class GoogleFontsOptimizer
         return $started;
     }
 
+    /**
+     * Callback given to `ob_start()`.
+     *
+     * @param string $markup
+     * @return string
+     */
     public function endBuffering($markup)
     {
         // Bail early on things we don't want to parse
