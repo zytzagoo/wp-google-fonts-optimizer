@@ -1,7 +1,8 @@
 # WP Google Fonts Optimizer
 
-[![Build Status](https://img.shields.io/travis/zytzagoo/wp-google-fonts-optimizer.svg?style=flat-square)](https://travis-ci.org/zytzagoo/wp-google-fonts-optimizer)
+[![PHP Version](https://img.shields.io/badge/php-5.4%2B-blue.svg?style=flat-square)](https://packagist.org/packages/zytzagoo/wp-google-fonts-optimizer)
 [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
+[![Build Status](https://img.shields.io/travis/zytzagoo/wp-google-fonts-optimizer.svg?style=flat-square)](https://travis-ci.org/zytzagoo/wp-google-fonts-optimizer)
 [![Scrutinizer Coverage](https://img.shields.io/scrutinizer/coverage/g/zytzagoo/wp-google-fonts-optimizer.svg?style=flat-square)](https://scrutinizer-ci.com/g/zytzagoo/wp-google-fonts-optimizer/?branch=master)
 [![Quality Score](https://img.shields.io/scrutinizer/g/zytzagoo/wp-google-fonts-optimizer.svg?style=flat-square)](https://scrutinizer-ci.com/g/zytzagoo/wp-google-fonts-optimizer)
 
