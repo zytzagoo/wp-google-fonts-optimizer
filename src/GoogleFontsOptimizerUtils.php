@@ -7,7 +7,7 @@ use ZWF\GoogleFontsCollection as Collection;
 class GoogleFontsOptimizerUtils
 {
     /**
-     * Replaces any occurences of un-encoded ampersands in the given string
+     * Replaces any occurrences of un-encoded ampersands in the given string
      * with the value given in the `$amp` parameter (`&amp;` by default).
      *
      * @param string $url
@@ -27,7 +27,7 @@ class GoogleFontsOptimizerUtils
     }
 
     /**
-     * Turns protocol-relative or non-https URLs into their https versions.
+     * Replaces protocol-relative or non-https URLs into https URLs.
      *
      * @param string $link
      *
@@ -48,7 +48,7 @@ class GoogleFontsOptimizerUtils
     }
 
     /**
-     * Returns true if a given url is a google font url.
+     * Returns true if a given `$url` is a Google Fonts URL.
      *
      * @param string $url
      *
@@ -95,15 +95,15 @@ class GoogleFontsOptimizerUtils
     }
 
     /**
-     * Given a key => value map in which the value is a single string or
-     * a list of comma-separeted strings, it returns a new array with the
-     * given keys, but the values are transformed into an array and any
-     * potential duplicate values are removed.
-     * If the $sort parameter is given, the list of values is sorted using
-     * `sort()` and the $sort param is treated as a sort flag.
+     * Given a `['key' => 'value1,value2,value3']` or a
+     * `['key' => ['value1', 'value2', 'value3']]` map/array it returns a new
+     * array with the same keys, but the values are now always an array of
+     * values (and any potential duplicate values are removed).
+     * If the `$sort` parameter is given, the list of values is sorted using
+     * `sort()` and the `$sort` parameter is treated as a sort flag.
      *
      * @param array $data
-     * @param bool|int $sort If false, no sorting, otherwise an int representing
+     * @param bool|int $sort If false, no sorting, otherwise an integer representing
      *                       sort flags. See http://php.net/sort
      *
      * @return array
@@ -132,7 +132,7 @@ class GoogleFontsOptimizerUtils
     }
 
     /**
-     * Given a GoogleFontsCollection it builds needed `<link rel="stylesheet">` markup.
+     * Given a `GoogleFontsCollection` it builds needed `<link rel="stylesheet">` markup.
      *
      * @param Collection $fonts
      *
@@ -153,9 +153,9 @@ class GoogleFontsOptimizerUtils
     }
 
     /**
-     * Given a GoogleFontsCollection it builds the WebFont loader script markup.
+     * Given a `GoogleFontsCollection` it builds the WebFont loader script markup.
      *
-     * @param Collection $fonts
+     * @param Collection $collection
      *
      * @return string
      */
