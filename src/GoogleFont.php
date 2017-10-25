@@ -5,10 +5,19 @@ namespace ZWF;
 class GoogleFont
 {
 
+    /**
+     * @var string
+     */
     protected $name = '';
 
+    /**
+     * @var array
+     */
     protected $sizes = [];
 
+    /**
+     * @var array
+     */
     protected $subsets = [];
 
     public function __construct($name, array $sizes = [], array $subsets = [])
@@ -18,6 +27,10 @@ class GoogleFont
         $this->setSubsets($subsets);
     }
 
+    /**
+     * @param string $name
+     * @throws \InvalidArgumentException
+     */
     public function setName($name)
     {
         if (empty($name)) {
@@ -27,6 +40,9 @@ class GoogleFont
         $this->name = $name;
     }
 
+    /**
+     * @return string
+     */
     public function getName()
     {
         return $this->name;
@@ -43,11 +59,17 @@ class GoogleFont
         sort($this->sizes, SORT_REGULAR);
     }
 
+    /**
+     * @return array
+     */
     public function getSizes()
     {
         return $this->sizes;
     }
 
+    /**
+     * @return string
+     */
     public function getSizesString()
     {
         return implode(',', $this->getSizes());
@@ -63,11 +85,17 @@ class GoogleFont
         $this->subsets = array_unique($this->subsets, SORT_STRING);
     }
 
+    /**
+     * @return array
+     */
     public function getSubsets()
     {
         return $this->subsets;
     }
 
+    /**
+     * @return string
+     */
     public function getSubsetsString()
     {
         return implode(',', $this->subsets);
