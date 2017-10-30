@@ -43,7 +43,8 @@ jobs:
       after_script:
         - wget https://scrutinizer-ci.com/ocular.phar
         - php ocular.phar code-coverage:upload --format=php-clover ./clover.xml
-
+      after_success:
+        - bash <(curl -s https://codecov.io/bash) -f ./clover.xml
     - stage: CodeStyle
       php: 7.1
       script:
